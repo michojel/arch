@@ -1,0 +1,21 @@
+PKGS := $(addsuffix .pkg.tar.xz, $(shell makepkg --packagelist))
+PKGDEST := ..
+TARGETS := $(addprefix ../, $(PKGS))
+
+.PHONY: clean-common clean-pkgs clean-all
+
+pkg: $(TARGETS)
+
+$(TARGETS):
+	PKGDEST=$(PKGDEST) makepkg $(MAKEPKG_ARGS)
+
+clean: clean-common
+	$(if $(TEMP_OBJS), rm $(TEMP_OBJS))
+
+clean-common:
+	-rm -rf *.tar pkg src *.tar.xz *.tar.bz2 *.tar.gz
+
+clean-pkgs:
+	-rm $(TARGETS)
+
+clean-all: clean-common clean-pkgs
