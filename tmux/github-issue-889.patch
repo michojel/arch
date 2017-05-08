@@ -1,0 +1,417 @@
+Index: tmux-2.4/cfg.c
+===================================================================
+--- tmux-2.4.orig/cfg.c
++++ tmux-2.4/cfg.c
+@@ -122,7 +122,8 @@ load_cfg(const char *path, struct client
+ 				    line);
+ 				continue;
+ 			}
+-			ft = format_create(NULL, FORMAT_NONE, FORMAT_NOJOBS);
++			ft = format_create(NULL, NULL, FORMAT_NONE,
++			    FORMAT_NOJOBS);
+ 
+ 			s = p + 3;
+ 			while (isspace((u_char)*s))
+Index: tmux-2.4/cmd-display-message.c
+===================================================================
+--- tmux-2.4.orig/cmd-display-message.c
++++ tmux-2.4/cmd-display-message.c
+@@ -73,7 +73,7 @@ cmd_display_message_exec(struct cmd *sel
+ 	if (template == NULL)
+ 		template = DISPLAY_MESSAGE_TEMPLATE;
+ 
+-	ft = format_create(item, FORMAT_NONE, 0);
++	ft = format_create(item->client, item, FORMAT_NONE, 0);
+ 	format_defaults(ft, c, s, wl, wp);
+ 
+ 	msg = format_expand_time(ft, template, time(NULL));
+Index: tmux-2.4/cmd-list-buffers.c
+===================================================================
+--- tmux-2.4.orig/cmd-list-buffers.c
++++ tmux-2.4/cmd-list-buffers.c
+@@ -57,7 +57,7 @@ cmd_list_buffers_exec(struct cmd *self,
+ 
+ 	pb = NULL;
+ 	while ((pb = paste_walk(pb)) != NULL) {
+-		ft = format_create(item, FORMAT_NONE, 0);
++		ft = format_create(item->client, item, FORMAT_NONE, 0);
+ 		format_defaults_paste_buffer(ft, pb);
+ 
+ 		line = format_expand(ft, template);
+Index: tmux-2.4/cmd-list-clients.c
+===================================================================
+--- tmux-2.4.orig/cmd-list-clients.c
++++ tmux-2.4/cmd-list-clients.c
+@@ -72,7 +72,7 @@ cmd_list_clients_exec(struct cmd *self,
+ 		if (c->session == NULL || (s != NULL && s != c->session))
+ 			continue;
+ 
+-		ft = format_create(item, FORMAT_NONE, 0);
++		ft = format_create(item->client, item, FORMAT_NONE, 0);
+ 		format_add(ft, "line", "%u", idx);
+ 		format_defaults(ft, c, NULL, NULL, NULL);
+ 
+Index: tmux-2.4/cmd-list-keys.c
+===================================================================
+--- tmux-2.4.orig/cmd-list-keys.c
++++ tmux-2.4/cmd-list-keys.c
+@@ -144,7 +144,7 @@ cmd_list_keys_commands(struct cmd *self,
+ 		    "#{command_list_usage}";
+ 	}
+ 
+-	ft = format_create(item, FORMAT_NONE, 0);
++	ft = format_create(item->client, item, FORMAT_NONE, 0);
+ 	format_defaults(ft, NULL, NULL, NULL, NULL);
+ 
+ 	for (entryp = cmd_table; *entryp != NULL; entryp++) {
+Index: tmux-2.4/cmd-list-panes.c
+===================================================================
+--- tmux-2.4.orig/cmd-list-panes.c
++++ tmux-2.4/cmd-list-panes.c
+@@ -123,7 +123,7 @@ cmd_list_panes_window(struct cmd *self,
+ 
+ 	n = 0;
+ 	TAILQ_FOREACH(wp, &wl->window->panes, entry) {
+-		ft = format_create(item, FORMAT_NONE, 0);
++		ft = format_create(item->client, item, FORMAT_NONE, 0);
+ 		format_add(ft, "line", "%u", n);
+ 		format_defaults(ft, NULL, s, wl, wp);
+ 
+Index: tmux-2.4/cmd-list-sessions.c
+===================================================================
+--- tmux-2.4.orig/cmd-list-sessions.c
++++ tmux-2.4/cmd-list-sessions.c
+@@ -65,7 +65,7 @@ cmd_list_sessions_exec(struct cmd *self,
+ 
+ 	n = 0;
+ 	RB_FOREACH(s, sessions, &sessions) {
+-		ft = format_create(item, FORMAT_NONE, 0);
++		ft = format_create(item->client, item, FORMAT_NONE, 0);
+ 		format_add(ft, "line", "%u", n);
+ 		format_defaults(ft, NULL, s, NULL, NULL);
+ 
+Index: tmux-2.4/cmd-list-windows.c
+===================================================================
+--- tmux-2.4.orig/cmd-list-windows.c
++++ tmux-2.4/cmd-list-windows.c
+@@ -86,7 +86,7 @@ cmd_list_windows_session(struct cmd *sel
+ {
+ 	struct args		*args = self->args;
+ 	struct winlink		*wl;
+-	u_int			n;
++	u_int			 n;
+ 	struct format_tree	*ft;
+ 	const char		*template;
+ 	char			*line;
+@@ -105,7 +105,7 @@ cmd_list_windows_session(struct cmd *sel
+ 
+ 	n = 0;
+ 	RB_FOREACH(wl, winlinks, &s->windows) {
+-		ft = format_create(item, FORMAT_NONE, 0);
++		ft = format_create(item->client, item, FORMAT_NONE, 0);
+ 		format_add(ft, "line", "%u", n);
+ 		format_defaults(ft, NULL, s, wl, NULL);
+ 
+Index: tmux-2.4/cmd-pipe-pane.c
+===================================================================
+--- tmux-2.4.orig/cmd-pipe-pane.c
++++ tmux-2.4/cmd-pipe-pane.c
+@@ -89,7 +89,7 @@ cmd_pipe_pane_exec(struct cmd *self, str
+ 	}
+ 
+ 	/* Expand the command. */
+-	ft = format_create(item, FORMAT_NONE, 0);
++	ft = format_create(item->client, item, FORMAT_NONE, 0);
+ 	format_defaults(ft, c, s, wl, wp);
+ 	cmd = format_expand_time(ft, args->argv[0], time(NULL));
+ 	format_free(ft);
+Index: tmux-2.4/cmd-queue.c
+===================================================================
+--- tmux-2.4.orig/cmd-queue.c
++++ tmux-2.4/cmd-queue.c
+@@ -268,7 +268,7 @@ cmdq_format(struct cmdq_item *item, cons
+ 
+ 	for (loop = item; loop != NULL; loop = item->next) {
+ 		if (loop->formats == NULL)
+-			loop->formats = format_create(NULL, FORMAT_NONE, 0);
++			loop->formats = format_create(NULL, NULL, FORMAT_NONE, 0);
+ 		format_add(loop->formats, key, "%s", value);
+ 	}
+ 
+Index: tmux-2.4/format.c
+===================================================================
+--- tmux-2.4.orig/format.c
++++ tmux-2.4/format.c
+@@ -128,6 +128,7 @@ struct format_entry {
+ 
+ /* Format entry tree. */
+ struct format_tree {
++	struct client		*c;
+ 	struct window		*w;
+ 	struct session		*s;
+ 	struct window_pane	*wp;
+@@ -243,14 +244,24 @@ format_job_callback(struct job *job)
+ static char *
+ format_job_get(struct format_tree *ft, const char *cmd)
+ {
++	struct format_job_tree	*jobs;
+ 	struct format_job	 fj0, *fj;
+ 	time_t			 t;
+ 	char			*expanded;
+ 	int			 force;
+ 
++	if (ft->c == NULL)
++		jobs = &format_jobs;
++	else if (ft->c->jobs != NULL)
++		jobs = ft->c->jobs;
++	else {
++		jobs = ft->c->jobs = xmalloc(sizeof *ft->c->jobs);
++		RB_INIT(jobs);
++	}
++
+ 	fj0.tag = ft->tag;
+ 	fj0.cmd = cmd;
+-	if ((fj = RB_FIND(format_job_tree, &format_jobs, &fj0)) == NULL) {
++	if ((fj = RB_FIND(format_job_tree, jobs, &fj0)) == NULL) {
+ 		fj = xcalloc(1, sizeof *fj);
+ 		fj->tag = ft->tag;
+ 		fj->cmd = xstrdup(cmd);
+@@ -258,7 +269,7 @@ format_job_get(struct format_tree *ft, c
+ 
+ 		xasprintf(&fj->out, "<'%s' not ready>", fj->cmd);
+ 
+-		RB_INSERT(format_job_tree, &format_jobs, fj);
++		RB_INSERT(format_job_tree, jobs, fj);
+ 	}
+ 
+ 	expanded = format_expand(ft, cmd);
+@@ -270,6 +281,8 @@ format_job_get(struct format_tree *ft, c
+ 		force = (ft->flags & FORMAT_FORCE);
+ 
+ 	t = time(NULL);
++	log_debug("%s: %s: %srunning, last=%ld, now=%ld, force=%d", __func__, fj->cmd,
++	    fj->job == NULL ? "not " : "", fj->last, t, force);
+ 	if (fj->job == NULL && (force || fj->last != t)) {
+ 		fj->job = job_run(expanded, NULL, NULL, format_job_callback,
+ 		    NULL, fj);
+@@ -288,18 +301,18 @@ format_job_get(struct format_tree *ft, c
+ }
+ 
+ /* Remove old jobs. */
+-static void
+-format_job_timer(__unused int fd, __unused short events, __unused void *arg)
++void
++format_job_tidy(struct format_job_tree *jobs, int force)
+ {
+ 	struct format_job	*fj, *fj1;
+ 	time_t			 now;
+ 	struct timeval		 tv = { .tv_sec = 60 };
+ 
+ 	now = time(NULL);
+-	RB_FOREACH_SAFE(fj, format_job_tree, &format_jobs, fj1) {
+-		if (fj->last > now || now - fj->last < 3600)
++	RB_FOREACH_SAFE(fj, format_job_tree, jobs, fj1) {
++		if (!force && (fj->last > now || now - fj->last < 3600))
+ 			continue;
+-		RB_REMOVE(format_job_tree, &format_jobs, fj);
++		RB_REMOVE(format_job_tree, jobs, fj);
+ 
+ 		log_debug("%s: %s", __func__, fj->cmd);
+ 
+@@ -317,6 +330,19 @@ format_job_timer(__unused int fd, __unus
+ 	evtimer_add(&format_job_event, &tv);
+ }
+ 
++/* Remove old jobs. */
++static void
++format_job_timer(__unused int fd, __unused short events, __unused void *arg)
++{
++	struct client		*c;
++
++	format_job_tidy(&format_jobs, 0);
++	TAILQ_FOREACH(c, &clients, entry) {
++		if (c->jobs != NULL)
++			format_job_tidy(c->jobs, 0);
++	}
++}
++
+ /* Callback for host. */
+ static void
+ format_cb_host(__unused struct format_tree *ft, struct format_entry *fe)
+@@ -523,7 +549,7 @@ format_merge(struct format_tree *ft, str
+ 
+ /* Create a new tree. */
+ struct format_tree *
+-format_create(struct cmdq_item *item, int tag, int flags)
++format_create(struct client *c, struct cmdq_item *item, int tag, int flags)
+ {
+ 	struct format_tree	*ft;
+ 
+@@ -535,6 +561,11 @@ format_create(struct cmdq_item *item, in
+ 	ft = xcalloc(1, sizeof *ft);
+ 	RB_INIT(&ft->tree);
+ 
++	if (c != NULL) {
++		ft->c = c;
++		ft->c->references++;
++	}
++
+ 	ft->tag = tag;
+ 	ft->flags = flags;
+ 
+@@ -566,6 +597,8 @@ format_free(struct format_tree *ft)
+ 		free(fe);
+ 	}
+ 
++	if (ft->c != NULL)
++		server_client_unref(ft->c);
+ 	free(ft);
+ }
+ 
+@@ -1088,7 +1121,10 @@ format_single(struct cmdq_item *item, co
+ 	struct format_tree	*ft;
+ 	char			*expanded;
+ 
+-	ft = format_create(item, FORMAT_NONE, 0);
++	if (item != NULL)
++		ft = format_create(item->client, item, FORMAT_NONE, 0);
++	else
++		ft = format_create(NULL, item, FORMAT_NONE, 0);
+ 	format_defaults(ft, c, s, wl, wp);
+ 
+ 	expanded = format_expand(ft, fmt);
+Index: tmux-2.4/names.c
+===================================================================
+--- tmux-2.4.orig/names.c
++++ tmux-2.4/names.c
+@@ -124,7 +124,7 @@ format_window_name(struct window *w)
+ 	const char		*fmt;
+ 	char			*name;
+ 
+-	ft = format_create(NULL, FORMAT_WINDOW|w->id, 0);
++	ft = format_create(NULL, NULL, FORMAT_WINDOW|w->id, 0);
+ 	format_defaults_window(ft, w);
+ 	format_defaults_pane(ft, w->active);
+ 
+Index: tmux-2.4/screen-redraw.c
+===================================================================
+--- tmux-2.4.orig/screen-redraw.c
++++ tmux-2.4/screen-redraw.c
+@@ -280,7 +280,7 @@ screen_redraw_make_pane_status(struct cl
+ 
+ 	fmt = options_get_string(w->options, "pane-border-format");
+ 
+-	ft = format_create(NULL, FORMAT_PANE|wp->id, 0);
++	ft = format_create(c, NULL, FORMAT_PANE|wp->id, 0);
+ 	format_defaults(ft, c, NULL, NULL, wp);
+ 
+ 	memcpy(&old, &wp->status_screen, sizeof old);
+Index: tmux-2.4/server-client.c
+===================================================================
+--- tmux-2.4.orig/server-client.c
++++ tmux-2.4/server-client.c
+@@ -281,6 +281,10 @@ server_client_lost(struct client *c)
+ 	free(c->prompt_string);
+ 	free(c->prompt_buffer);
+ 
++	if (c->jobs != NULL)
++		format_job_tidy(c->jobs, 1);
++	free(c->jobs);
++
+ 	environ_free(c->environ);
+ 
+ 	proc_remove_peer(c->peer);
+@@ -1271,7 +1275,7 @@ server_client_set_title(struct client *c
+ 
+ 	template = options_get_string(s->options, "set-titles-string");
+ 
+-	ft = format_create(NULL, FORMAT_NONE, 0);
++	ft = format_create(c, NULL, FORMAT_NONE, 0);
+ 	format_defaults(ft, c, NULL, NULL, NULL);
+ 
+ 	title = format_expand_time(ft, template, time(NULL));
+Index: tmux-2.4/status.c
+===================================================================
+--- tmux-2.4.orig/status.c
++++ tmux-2.4/status.c
+@@ -519,9 +519,9 @@ status_replace(struct client *c, struct
+ 	else
+ 		tag = FORMAT_NONE;
+ 	if (c->flags & CLIENT_STATUSFORCE)
+-		ft = format_create(NULL, tag, FORMAT_STATUS|FORMAT_FORCE);
++		ft = format_create(c, NULL, tag, FORMAT_STATUS|FORMAT_FORCE);
+ 	else
+-		ft = format_create(NULL, tag, FORMAT_STATUS);
++		ft = format_create(c, NULL, tag, FORMAT_STATUS);
+ 	format_defaults(ft, c, NULL, wl, NULL);
+ 
+ 	expanded = format_expand_time(ft, fmt, t);
+@@ -663,7 +663,7 @@ status_prompt_set(struct client *c, cons
+ 	time_t			 t;
+ 	char			*tmp;
+ 
+-	ft = format_create(NULL, FORMAT_NONE, 0);
++	ft = format_create(c, NULL, FORMAT_NONE, 0);
+ 	format_defaults(ft, c, NULL, NULL, NULL);
+ 
+ 	t = time(NULL);
+@@ -724,7 +724,7 @@ status_prompt_update(struct client *c, c
+ 	time_t			 t;
+ 	char			*tmp;
+ 
+-	ft = format_create(NULL, FORMAT_NONE, 0);
++	ft = format_create(c, NULL, FORMAT_NONE, 0);
+ 	format_defaults(ft, c, NULL, NULL, NULL);
+ 
+ 	t = time(NULL);
+Index: tmux-2.4/tmux.h
+===================================================================
+--- tmux-2.4.orig/tmux.h
++++ tmux-2.4/tmux.h
+@@ -45,6 +45,7 @@ struct client;
+ struct cmdq_item;
+ struct cmdq_list;
+ struct environ;
++struct format_job_tree;
+ struct input_ctx;
+ struct mode_key_cmdstr;
+ struct mouse_event;
+@@ -1302,6 +1303,7 @@ struct client {
+ 	struct timeval	 activity_time;
+ 
+ 	struct environ	*environ;
++	struct format_job_tree	*jobs;
+ 
+ 	char		*title;
+ 	const char	*cwd;
+@@ -1509,7 +1511,8 @@ char		*paste_make_sample(struct paste_bu
+ #define FORMAT_PANE 0x80000000U
+ #define FORMAT_WINDOW 0x40000000U
+ struct format_tree;
+-struct format_tree *format_create(struct cmdq_item *, int, int);
++struct format_tree *format_create(struct client *, struct cmdq_item *, int,
++		     int);
+ void		 format_free(struct format_tree *);
+ void printflike(3, 4) format_add(struct format_tree *, const char *,
+ 		     const char *, ...);
+@@ -1525,6 +1528,7 @@ void		 format_defaults_pane(struct forma
+ 		     struct window_pane *);
+ void		 format_defaults_paste_buffer(struct format_tree *,
+ 		     struct paste_buffer *);
++void		 format_job_tidy(struct format_job_tree *, int);
+ 
+ /* hooks.c */
+ struct hook;
+Index: tmux-2.4/window-choose.c
+===================================================================
+--- tmux-2.4.orig/window-choose.c
++++ tmux-2.4/window-choose.c
+@@ -202,7 +202,7 @@ window_choose_data_create(int type, stru
+ 	wcd = xmalloc(sizeof *wcd);
+ 	wcd->type = type;
+ 
+-	wcd->ft = format_create(NULL, FORMAT_NONE, 0);
++	wcd->ft = format_create(c, NULL, FORMAT_NONE, 0);
+ 	wcd->ft_template = NULL;
+ 
+ 	wcd->command = NULL;
